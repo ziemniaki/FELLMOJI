@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji Music Visualizer</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background-color: white;
+            overflow: hidden;
+            position: relative;
+        }
+        #visualizer {
+            font-size: 20vw;
+            text-align: center;
+            transform: scale(1); /* Start with neutral scale */
+            transition: transform 0.1s ease-in-out; /* Smooth transition for scaling */
+            z-index: 2;
+        }
+        #startButton {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            padding: 10px 20px;
+            cursor: pointer;
+            z-index: 3;
+        }
+        .background-text {
+            position: absolute;
+            font-size: 5vw;
+            color: rgba(0, 0, 0, 0.1);
+            white-space: nowrap;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <button id="startButton">⏯</button>
+    <div id="visualizer"></div>
+
+    <script>
+        let audioContext;
+        let isPlaying = false;
+        let currentChord;
+        let currentBPM;
+        let currentScale = 1;
+        const visualizer = document.getElementById('visualizer');
+        const backgroundTextContainer = document.createElement('div');
+        backgroundTextContainer.id = 'backgroundTextContainer';
+        document.body.appendChild(backgroundTextContainer);
+
+        const chords = [
+    {name: 'CMAJ7', notes: [261.63, 329.63, 392.00, 493.88], emoji: '😊'},
+    {name: 'C#MAJ7', notes: [277.18, 349.23, 415.30, 523.25], emoji: '🥳'},
+    {name: 'DMAJ7', notes: [293.66, 369.99, 440.00, 554.37], emoji: '😎'},
+    {name: 'D#MAJ7', notes: [311.13, 392.00, 466.16, 587.33], emoji: '🤠'},
+    {name: 'EMAJ7', notes: [329.63, 415.30, 493.88, 622.25], emoji: '😍'},
+    {name: 'FMAJ7', notes: [349.23, 440.00, 523.25, 659.25], emoji: '🤩'},
+    {name: 'F#MAJ7', notes: [369.99, 466.16, 554.37, 698.46], emoji: '😌'},
+    {name: 'GMAJ7', notes: [392.00, 493.88, 587.33, 739.99], emoji: '😇'},
+    {name: 'G#MAJ7', notes: [415.30, 523.25, 622.25, 783.99], emoji: '🥰'},
+    {name: 'AMAJ7', notes: [440.00, 554.37, 659.25, 830.61], emoji: '😄'},
+    {name: 'A#MAJ7', notes: [466.16, 587.33, 698.46, 880.00], emoji: '😁'},
+    {name: 'BMAJ7', notes: [493.88, 622.25, 739.99, 932.33], emoji: '😋'},
+    
+    {name: 'CMAJ9', notes: [261.63, 329.63, 392.00, 493.88, 587.33], emoji: '🌞'},
+    {name: 'C#MAJ9', notes: [277.18, 349.23, 415.30, 523.25, 622.25], emoji: '🎉'},
+    {name: 'DMAJ9', notes: [293.66, 369.99, 440.00, 554.37, 659.25], emoji: '😜'},
+    {name: 'D#MAJ9', notes: [311.13, 392.00, 466.16, 587.33, 698.46], emoji: '🤓'},
+    {name: 'EMAJ9', notes: [329.63, 415.30, 493.88, 622.25, 739.99], emoji: '😎'},
+    {name: 'FMAJ9', notes: [349.23, 440.00, 523.25, 659.25, 783.99], emoji: '😇'},
+    {name: 'F#MAJ9', notes: [369.99, 466.16, 554.37, 698.46, 830.61], emoji: '🧐'},
+    {name: 'GMAJ9', notes: [392.00, 493.88, 587.33, 739.99, 880.00], emoji: '😏'},
+    {name: 'G#MAJ9', notes: [415.30, 523.25, 622.25, 783.99, 932.33], emoji: '😬'},
+    {name: 'AMAJ9', notes: [440.00, 554.37, 659.25, 830.61, 987.77], emoji: '😃'},
+    {name: 'A#MAJ9', notes: [466.16, 587.33, 698.46, 880.00, 1046.50], emoji: '😆'},
+    {name: 'BMAJ9', notes: [493.88, 622.25, 739.99, 932.33, 1108.73], emoji: '😉'},
+    
+    {name: 'CMAJ9#4', notes: [261.63, 329.63, 392.00, 493.88, 587.33, 369.99], emoji: '🦄'},
+    {name: 'C#MAJ9#4', notes: [277.18, 349.23, 415.30, 523.25, 622.25, 392.00], emoji: '🌈'},
+    {name: 'DMAJ9#4', notes: [293.66, 369.99, 440.00, 554.37, 659.25, 415.30], emoji: '🐉'},
+    {name: 'D#MAJ9#4', notes: [311.13, 392.00, 466.16, 587.33, 698.46, 440.00], emoji: '🔥'},
+    {name: 'EMAJ9#4', notes: [329.63, 415.30, 493.88, 622.25, 739.99, 466.16], emoji: '🌟'},
+    {name: 'FMAJ9#4', notes: [349.23, 440.00, 523.25, 659.25, 783.99, 493.88], emoji: '⭐'},
+    {name: 'F#MAJ9#4', notes: [369.99, 466.16, 554.37, 698.46, 830.61, 523.25], emoji: '🚀'},
+    {name: 'GMAJ9#4', notes: [392.00, 493.88, 587.33, 739.99, 880.00, 554.37], emoji: '🎈'},
+    {name: 'G#MAJ9#4', notes: [415.30, 523.25, 622.25, 783.99, 932.33, 587.33], emoji: '🎆'},
+    {name: 'AMAJ9#4', notes: [440.00, 554.37, 659.25, 830.61, 987.77, 622.25], emoji: '🌠'},
+    {name: 'A#MAJ9#4', notes: [466.16, 587.33, 698.46, 880.00, 1046.50, 659.25], emoji: '🎇'},
+    {name: 'BMAJ9#4', notes: [493.88, 622.25, 739.99, 932.33, 1108.73, 698.46], emoji: '✨'},
+    
+    {name: 'Cm7', notes: [261.63, 311.13, 392.00, 466.16], emoji: '😢'},
+    {name: 'C#m7', notes: [277.18, 329.63, 415.30, 493.88], emoji: '😔'},
+    {name: 'Dm7', notes: [293.66, 349.23, 440.00, 523.25], emoji: '😞'},
+    {name: 'D#m7', notes: [311.13, 369.99, 466.16, 554.37], emoji: '😟'},
+    {name: 'Em7', notes: [329.63, 392.00, 493.88, 587.33], emoji: '😭'},
+    {name: 'Fm7', notes: [349.23, 415.30, 523.25, 622.25], emoji: '😢'},
+    {name: 'F#m7', notes: [369.99, 440.00, 554.37, 659.25], emoji: '😥'},
+    {name: 'Gm7', notes: [392.00, 466.16, 587.33, 698.46], emoji: '😪'},
+    {name: 'G#m7', notes: [415.30, 493.88, 622.25, 739.99], emoji: '😓'},
+    {name: 'Am7', notes: [440.00, 523.25, 659.25, 783.99], emoji: '😢'},
+    {name: 'A#m7', notes: [466.16, 554.37, 698.46, 830.61], emoji: '😩'},
+    {name: 'Bm7', notes: [493.88, 587.33, 739.99, 880.00], emoji: '😰'},
+
+    {name: 'CbMAJ9#4', notes: [257.56, 324.77, 486.29, 361.94], emoji: '😛'},
+    {name: 'Cb#MAJ9#4', notes: [273.08, 344.86, 516.30, 385.97], emoji: '🤪'},
+    {name: 'DbMAJ9#4', notes: [289.29, 364.56, 546.08, 410.21], emoji: '😌'},
+    {name: 'Db#MAJ9#4', notes: [306.17, 385.97, 577.25, 433.56], emoji: '😗'},
+    {name: 'EbMAJ9#4', notes: [324.77, 410.21, 612.94, 458.28], emoji: '😘'},
+    {name: 'FbMAJ9#4', notes: [344.86, 433.56, 652.87, 486.29], emoji: '😍'},
+    {name: 'Fb#MAJ9#4', notes: [364.56, 458.28, 690.73, 516.30], emoji: '😚'},
+    {name: 'GbMAJ9#4', notes: [385.97, 486.29, 730.92, 546.08], emoji: '😙'},
+    {name: 'Gb#MAJ9#4', notes: [410.21, 516.30, 774.29, 577.25], emoji: '🥳'},
+    {name: 'AbMAJ9#4', notes: [433.56, 546.08, 820.36, 612.94], emoji: '😏'},
+    {name: 'Ab#MAJ9#4', notes: [458.28, 577.25, 868.00, 652.87], emoji: '🙃'},
+    {name: 'BbMAJ9#4', notes: [486.29, 612.94, 919.72, 690.73], emoji: '🤡'},
+
+    {name: 'Cbm7', notes: [257.56, 306.17, 385.97, 458.28], emoji: '🤥'},
+    {name: 'Cb#m7', notes: [273.08, 324.77, 410.21, 486.29], emoji: '😐'},
+    {name: 'Dbm7', notes: [289.29, 344.86, 433.56, 516.30], emoji: '😑'},
+    {name: 'Db#m7', notes: [306.17, 364.56, 458.28, 546.08], emoji: '😴'},
+    {name: 'Ebm7', notes: [324.77, 385.97, 486.29, 577.25], emoji: '🥱'},
+    {name: 'Fbm7', notes: [344.86, 410.21, 516.30, 612.94], emoji: '😪'},
+    {name: 'Fb#m7', notes: [364.56, 433.56, 546.08, 652.87], emoji: '🛌'},
+    {name: 'Gbm7', notes: [385.97, 458.28, 577.25, 690.73], emoji: '😴'},
+    {name: 'Gb#m7', notes: [410.21, 486.29, 612.94, 730.92], emoji: '🥲'},
+    {name: 'Abm7', notes: [433.56, 516.30, 652.87, 774.29], emoji: '😟'},
+    {name: 'Ab#m7', notes: [458.28, 546.08, 690.73, 820.36], emoji: '🙁'},
+    {name: 'Bbm7', notes: [486.29, 577.25, 730.92, 868.00], emoji: '😕'},
+
+    {name: 'CbMAJ7', notes: [257.56, 324.77, 385.97, 486.29], emoji: '😮'},
+    {name: 'Cb#MAJ7', notes: [273.08, 344.86, 410.21, 516.30], emoji: '😯'},
+    {name: 'DbMAJ7', notes: [289.29, 364.56, 433.56, 546.08], emoji: '🤔'},
+    {name: 'Db#MAJ7', notes: [306.17, 385.97, 458.28, 577.25], emoji: '🤫'},
+    {name: 'EbMAJ7', notes: [324.77, 410.21, 486.29, 612.94], emoji: '🤭'},
+    {name: 'FbMAJ7', notes: [344.86, 433.56, 516.30, 652.87], emoji: '🤓'},
+    {name: 'Fb#MAJ7', notes: [364.56, 458.28, 546.08, 690.73], emoji: '🤨'},
+    {name: 'GbMAJ7', notes: [385.97, 486.29, 577.25, 730.92], emoji: '😳'},
+    {name: 'Gb#MAJ7', notes: [410.21, 516.30, 612.94, 774.29], emoji: '😵'},
+    {name: 'AbMAJ7', notes: [433.56, 546.08, 652.87, 820.36], emoji: '😶'},
+    {name: 'Ab#MAJ7', notes: [458.28, 577.25, 690.73, 868.00], emoji: '😷'},
+    {name: 'BbMAJ7', notes: [486.29, 612.94, 730.92, 919.72], emoji: '🤕'},
+    
+    {name: 'CbMAJ9', notes: [257.56, 324.77, 486.29, 577.25], emoji: '🤧'},
+    {name: 'Cb#MAJ9', notes: [273.08, 344.86, 516.30, 612.94], emoji: '🤒'},
+    {name: 'DbMAJ9', notes: [289.29, 364.56, 546.08, 652.87], emoji: '🤠'},
+    {name: 'Db#MAJ9', notes: [306.17, 385.97, 577.25, 690.73], emoji: '🤑'},
+    {name: 'EbMAJ9', notes: [324.77, 410.21, 612.94, 730.92], emoji: '🤩'},
+    {name: 'FbMAJ9', notes: [344.86, 433.56, 652.87, 774.29], emoji: '😎'},
+    {name: 'Fb#MAJ9', notes: [364.56, 458.28, 690.73, 820.36], emoji: '😬'},
+    {name: 'GbMAJ9', notes: [385.97, 486.29, 730.92, 868.00], emoji: '😆'},
+    {name: 'Gb#MAJ9', notes: [410.21, 516.30, 774.29, 919.72], emoji: '😂'},
+    {name: 'AbMAJ9', notes: [433.56, 546.08, 820.36, 974.44], emoji: '🤣'},
+    {name: 'Ab#MAJ9', notes: [458.28, 577.25, 868.00, 1040.97], emoji: '😜'},
+    {name: 'BbMAJ9', notes: [486.29, 612.94, 919.72, 1099.94], emoji: '😝'},
+
+    {name: 'altCbMAJ7', notes: [128.78, 324.77, 771.94, 486.29], emoji: '🌼'},
+    {name: 'altCb#MAJ7', notes: [136.54, 344.86, 820.42, 516.30], emoji: '🌻'},
+    {name: 'altDbMAJ7', notes: [144.65, 364.56, 867.12, 546.08], emoji: '🌸'},
+    {name: 'altDb#MAJ7', notes: [153.08, 385.97, 916.57, 577.25], emoji: '🌺'},
+    {name: 'altEbMAJ7', notes: [162.38, 410.21, 972.58, 612.94], emoji: '🌹'},
+    {name: 'altFbMAJ7', notes: [172.43, 216.78, 1032.60, 652.87], emoji: '💐'},
+    {name: 'altFb#MAJ7', notes: [182.28, 229.14, 1092.16, 690.73], emoji: '🌷'},
+    {name: 'altGbMAJ7', notes: [193.02, 243.15, 1154.50, 730.92], emoji: '🌱'},
+    {name: 'altGb#MAJ7', notes: [205.10, 258.15, 1229.50, 774.29], emoji: '🌳'},
+    {name: 'altAbMAJ7', notes: [216.78, 273.04, 1305.73, 820.36], emoji: '🌲'},
+    {name: 'altAb#MAJ7', notes: [229.14, 288.62, 1381.45, 868.00], emoji: '🌴'},
+    {name: 'altBbMAJ7', notes: [243.15, 306.47, 1462.96, 919.72], emoji: '🍀'},
+    
+    {name: 'altCbMAJ9', notes: [128.78, 162.38, 771.94, 577.25], emoji: '🍁'},
+    {name: 'altCb#MAJ9', notes: [136.54, 172.43, 820.42, 612.94], emoji: '🍂'},
+    {name: 'altDbMAJ9', notes: [144.65, 182.28, 867.12, 652.87], emoji: '🍃'},
+    {name: 'altDb#MAJ9', notes: [153.08, 193.02, 916.57, 690.73], emoji: '🍇'},
+    {name: 'altEbMAJ9', notes: [162.38, 205.10, 972.58, 730.92], emoji: '🍈'},
+    {name: 'altFbMAJ9', notes: [172.43, 216.78, 1032.60, 774.29], emoji: '🍉'},
+    {name: 'altFb#MAJ9', notes: [182.28, 229.14, 1092.16, 820.36], emoji: '🍊'},
+    {name: 'altGbMAJ9', notes: [193.02, 243.15, 1154.50, 868.00], emoji: '🍋'},
+    {name: 'altGb#MAJ9', notes: [205.10, 258.15, 1229.50, 919.72], emoji: '🍌'},
+    {name: 'altAbMAJ9', notes: [216.78, 273.04, 1305.73, 974.44], emoji: '🍍'},
+    {name: 'altAb#MAJ9', notes: [229.14, 288.62, 1381.45, 1040.97], emoji: '🥥'},
+    {name: 'altBbMAJ9', notes: [243.15, 306.47, 1462.96, 1099.94], emoji: '🥝'},
+    
+    {name: 'altCbMAJ9#4', notes: [128.78, 361.94, 771.94, 486.29], emoji: '🍒'},
+    {name: 'altCb#MAJ9#4', notes: [136.54, 385.97, 820.42, 516.30], emoji: '🍑'},
+    {name: 'altDbMAJ9#4', notes: [144.65, 410.21, 867.12, 546.08], emoji: '🍓'},
+    {name: 'altDb#MAJ9#4', notes: [153.08, 433.56, 916.57, 577.25], emoji: '🥭'},
+    {name: 'altEbMAJ9#4', notes: [162.38, 458.28, 972.58, 612.94], emoji: '🍆'},
+    {name: 'altFbMAJ9#4', notes: [172.43, 486.29, 1032.60, 652.87], emoji: '🍅'},
+    {name: 'altFb#MAJ9#4', notes: [182.28, 516.30, 1092.16, 690.73], emoji: '🌽'},
+    {name: 'altGbMAJ9#4', notes: [193.02, 546.08, 1154.50, 730.92], emoji: '🥦'},
+    {name: 'altGb#MAJ9#4', notes: [205.10, 577.25, 1229.50, 774.29], emoji: '🥒'},
+    {name: 'altAbMAJ9#4', notes: [216.78, 612.94, 1305.73, 820.36], emoji: '🥕'},
+    {name: 'altAb#MAJ9#4', notes: [229.14, 652.87, 1381.45, 868.00], emoji: '🌶️'},
+    {name: 'altBbMAJ9#4', notes: [243.15, 690.73, 1462.96, 919.72], emoji: '🥔'},
+    
+    {name: 'altCbm7', notes: [128.78, 306.17, 771.94, 458.28], emoji: '🥑'},
+    {name: 'altCb#m7', notes: [136.54, 324.77, 820.42, 486.29], emoji: '🍄'},
+    {name: 'altDbm7', notes: [144.65, 344.86, 867.12, 516.30], emoji: '🥜'},
+    {name: 'altDb#m7', notes: [153.08, 364.56, 916.57, 546.08], emoji: '🍠'},
+    {name: 'altEbm7', notes: [162.38, 385.97, 972.58, 577.25], emoji: '🥨'},
+    {name: 'altFbm7', notes: [172.43, 410.21, 1032.60, 612.94], emoji: '🍞'},
+    {name: 'altFb#m7', notes: [182.28, 433.56, 1092.16, 652.87], emoji: '🥐'},
+    {name: 'altGbm7', notes: [193.02, 458.28, 1154.50, 690.73], emoji: '🍕'},
+    {name: 'altGb#m7', notes: [205.10, 486.29, 1229.50, 730.92], emoji: '🍔'},
+    {name: 'altAbm7', notes: [216.78, 516.30, 1305.73, 774.29], emoji: '🍟'},
+    {name: 'altAb#m7', notes: [229.14, 546.08, 1381.45, 820.36], emoji: '🌭'},
+    {name: 'altBbm7', notes: [243.15, 577.25, 1462.96, 868.00], emoji: '🍿'},
+
+    {name: 'altAltCbMAJ7', notes: [324.77, 771.94, 972.58, 486.29], emoji: '🦋🐞'},
+    {name: 'altAltCb#MAJ7', notes: [344.86, 820.42, 1092.16, 516.30], emoji: '🐜🐝'},
+    {name: 'altAltDbMAJ7', notes: [364.56, 867.12, 1154.50, 546.08], emoji: '🐛🐌'},
+    {name: 'altAltDb#MAJ7', notes: [385.97, 916.57, 1229.50, 577.25], emoji: '🐞🦗'},
+    {name: 'altAltEbMAJ7', notes: [410.21, 972.58, 1305.73, 612.94], emoji: '🕷️🦂'},
+    {name: 'altAltFbMAJ7', notes: [216.78, 1032.60, 652.87, 486.29], emoji: '🐢🐍'},
+    {name: 'altAltFb#MAJ7', notes: [229.14, 1092.16, 690.73, 516.30], emoji: '🦎🦖'},
+    {name: 'altAltGbMAJ7', notes: [243.15, 1154.50, 730.92, 546.08], emoji: '🦕🦔'},
+    {name: 'altAltGb#MAJ7', notes: [258.15, 1229.50, 774.29, 577.25], emoji: '🐇🐁'},
+    {name: 'altAltAbMAJ7', notes: [273.04, 1305.73, 820.36, 612.94], emoji: '🐀🐿️'},
+    {name: 'altAltAb#MAJ7', notes: [288.62, 1381.45, 868.00, 652.87], emoji: '🦔🦡'},
+    {name: 'altAltBbMAJ7', notes: [306.47, 1462.96, 919.72, 690.73], emoji: '🦦🦥'},
+    
+    {name: 'altAltCbMAJ9', notes: [162.38, 771.94, 972.58, 577.25], emoji: '🦦🦨'},
+    {name: 'altAltCb#MAJ9', notes: [172.43, 820.42, 1092.16, 612.94], emoji: '🦥🦦'},
+    {name: 'altAltDbMAJ9', notes: [182.28, 867.12, 1154.50, 652.87], emoji: '🦨🦢'},
+    {name: 'altAltDb#MAJ9', notes: [193.02, 916.57, 1229.50, 690.73], emoji: '🦩🦩'},
+    {name: 'altAltEbMAJ9', notes: [205.10, 972.58, 1305.73, 730.92], emoji: '🦃🦜'},
+    {name: 'altAltFbMAJ9', notes: [216.78, 1032.60, 652.87, 774.29], emoji: '🦉🦢'},
+    {name: 'altAltFb#MAJ9', notes: [229.14, 1092.16, 690.73, 820.36], emoji: '🦇🦅'},
+    {name: 'altAltGbMAJ9', notes: [243.15, 1154.50, 730.92, 868.00], emoji: '🦉🦆'},
+    {name: 'altAltGb#MAJ9', notes: [258.15, 1229.50, 774.29, 919.72], emoji: '🦢🦚'},
+    {name: 'altAltAbMAJ9', notes: [273.04, 1305.73, 820.36, 974.44], emoji: '🦜🦉'},
+    {name: 'altAltAb#MAJ9', notes: [288.62, 1381.45, 868.00, 1040.97], emoji: '🦉🦉'},
+    {name: 'altAltBbMAJ9', notes: [306.47, 1462.96, 919.72, 1099.94], emoji: '🦅🦅'},
+    
+    {name: 'altAltCbMAJ9#4', notes: [361.94, 771.94, 972.58, 486.29], emoji: '🦢🦢'},
+    {name: 'altAltCb#MAJ9#4', notes: [385.97, 820.42, 1092.16, 516.30], emoji: '🦆🦆'},
+    {name: 'altAltDbMAJ9#4', notes: [410.21, 867.12, 1154.50, 546.08], emoji: '🦩🦩'},
+    {name: 'altAltDb#MAJ9#4', notes: [433.56, 916.57, 1229.50, 577.25], emoji: '🦜🦜'},
+    {name: 'altAltEbMAJ9#4', notes: [458.28, 972.58, 1305.73, 612.94], emoji: '🦅🦅'},
+    {name: 'altAltFbMAJ9#4', notes: [486.29, 1032.60, 652.87, 772.58], emoji: '🦆🦉'},
+    {name: 'altAltFb#MAJ9#4', notes: [516.30, 1092.16, 690.73, 820.36], emoji: '🦩🦆'},
+    {name: 'altAltGbMAJ9#4', notes: [546.08, 1154.50, 730.92, 868.00], emoji: '🦆🦆'},
+    {name: 'altAltGb#MAJ9#4', notes: [577.25, 1229.50, 774.29, 919.72], emoji: '🦩🦢'},
+    {name: 'altAltAbMAJ9#4', notes: [612.94, 1305.73, 820.36, 974.44], emoji: '🦢🦢'},
+    {name: 'altAltAb#MAJ9#4', notes: [652.87, 1381.45, 868.00, 1040.97], emoji: '🦉🦅'},
+    {name: 'altAltBbMAJ9#4', notes: [690.73, 1462.96, 919.72, 1099.94], emoji: '🦅🦆'},
+    
+    {name: 'altAltCbm7', notes: [306.17, 771.94, 972.58, 458.28], emoji: '🐶🐱'},
+    {name: 'altAltCb#m7', notes: [324.77, 820.42, 1092.16, 486.29], emoji: '🐭🐹'},
+    {name: 'altAltDbm7', notes: [344.86, 867.12, 1154.50, 516.30], emoji: '🐰🦊'},
+    {name: 'altAltDb#m7', notes: [364.56, 916.57, 1229.50, 546.08], emoji: '🦁🐯'},
+    {name: 'altAltEbm7', notes: [385.97, 972.58, 1305.73, 577.25], emoji: '🦄🦓'},
+    {name: 'altAltFbm7', notes: [410.21, 1032.60, 652.87, 612.94], emoji: '🦌🐮'},
+    {name: 'altAltFb#m7', notes: [433.56, 1092.16, 690.73, 652.87], emoji: '🐸🦎'},
+    {name: 'altAltGbm7', notes: [458.28, 1154.50, 730.92, 690.73], emoji: '🐢🦖'},
+    {name: 'altAltGb#m7', notes: [486.29, 1229.50, 774.29, 730.92], emoji: '🐥🐣'},
+    {name: 'altAltAbm7', notes: [516.30, 1305.73, 820.36, 774.29], emoji: '🐦🦉'},
+    {name: 'altAltAb#m7', notes: [546.08, 1381.45, 868.00, 820.36], emoji: '🐧🦢'},
+    {name: 'altAltBbm7', notes: [577.25, 1462.96, 919.72, 868.00], emoji: '🐍🐢'}
+
+
+
+
+];
+
+
+        const textFragments = [
+    // Nature Emojis
+    "🏜️ 🌵 ☀️ Desert vibes, endless sands...",
+    "🌲 🌳 🍃 Deep in the forest, where secrets grow...",
+    "🌊 🐚 🌅 Sea breezes whispering tales of old...",
+    "🏙️ 🚖 🌆 City lights, the pulse of human ambition...",
+    "🌌 🌠 🪐 Journey through space, where stars tell stories...",
+    "💻 📡 🌐 Digital realms, where code becomes art...",
+    
+    // Poetic Shakespearian Quotes
+    "O, how this gentle mind doth mourn the days of yore...",
+    "By heaven, love’s gentle touch brings sweet torment to the heart...",
+    "Fear doth consume the soul, like night devours the day...",
+    "Alas, in anguish do we linger, cursed by fate’s cruel hand...",
+    "In the shadow of doom, our mortal coil doth quiver and quake...",
+    
+    // Glitch Text
+    "G̵l̸i̷t̸c̶h̵e̶s̸ ̴i̷n̸ ̴t̶h̴e̶ ̴m̵a̸t̵r̴i̶x̴... ",
+    "D̸̩̽i̷͓͝s̶̘̅t̴̘̕o̴̤͆r̵͚̓t̷͎̚e̶̝̕d̴̜̐ ̸͇͝ȑ̷̻e̸̳͗a̵͓̿l̵͉͗ḯ̷͈ẗ̷̹́y̷͙͊...",
+    "Ṫ̶̞h̷̡͠e̷͇͝ ̸̝̃c̸͈̊o̶̯̓d̸̥̏ę̵̋ ̷̱̌ǐ̶̖s̵̳̏ b̴̢͗r̸͙̂e̶̘̓å̵͔k̴̡̾i̵̟̽n̵̗̆g̸̟̈́...",
+    "C̸h̸a̷o̶s̸ ̴i̴n̸ ̷t̸h̵e̷ ̵s̴y̴s̶t̷e̴m̴...",
+    "E̸r̴r̷o̸r̵ ̷4̷0̷4̶:̶ ̴R̸e̷a̷l̸i̸t̵y̵ ̴n̶o̸t̶ ̴f̵o̴u̵n̶d̸...",
+    
+    // Hallucinated Mock Motivational Quotes
+    "Success is just one hustle away from a breakdown.",
+    "Dream big, but remember, sleep is for the weak.",
+    "Work harder, buy things you don’t need, repeat.",
+    "Your value is in your productivity, not in your humanity.",
+    "Be the CEO of your own burnout.",
+    
+    // ASCII Art
+    "⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛",
+    "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒",
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+    "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓",
+    "███▒▒▒▒▒▒███▓▓▓▓▓▓████▒▒▒▒▒▒████▓▓▓▓▓▓███",
+    
+    // Repeating to reach 200 texts (example repeat)
+    "🏜️ 🌵 ☀️ Desert vibes, endless sands...",
+    "🌲 🌳 🍃 Deep in the forest, where secrets grow...",
+    "🌊 🐚 🌅 Sea breezes whispering tales of old...",
+    "🏙️ 🚖 🌆 City lights, the pulse of human ambition...",
+    "🌌 🌠 🪐 Journey through space, where stars tell stories...",
+    "💻 📡 🌐 Digital realms, where code becomes art...",
+
+    // Poetic Shakespearian Quotes
+    "O, how this gentle mind doth mourn the days of yore...",
+    "By heaven, love’s gentle touch brings sweet torment to the heart...",
+    "Fear doth consume the soul, like night devours the day...",
+    "Alas, in anguish do we linger, cursed by fate’s cruel hand...",
+    "In the shadow of doom, our mortal coil doth quiver and quake...",
+
+    // Glitch Text
+    "G̵l̸i̷t̸c̶h̵e̶s̸ ̴i̷n̸ ̴t̶h̴e̶ ̴m̵a̸t̵r̴i̶x̴... ",
+    "D̸̩̽i̷͓͝s̶̘̅t̴̘̕o̴̤͆r̵͚̓t̷͎̚e̶̝̕d̴̜̐ ̸͇͝ȑ̷̻e̸̳͗a̵͓̿l̵͉͗ḯ̷͈ẗ̷̹́y̷͙͊...",
+    "Ṫ̶̞h̷̡͠e̷͇͝ ̸̝̃c̸͈̊o̶̯̓d̸̥̏ę̵̋ ̷̱̌ǐ̶̖s̵̳̏ b̴̢͗r̸͙̂e̶̘̓å̵͔k̴̡̾i̵̟̽n̵̗̆g̸̟̈́...",
+    "C̸h̸a̷o̶s̸ ̴i̴n̸ ̷t̸h̵e̷ ̵s̴y̴s̶t̷e̴m̴...",
+    "E̸r̴r̷o̸r̵ ̷4̷0̷4̶:̶ ̴R̸e̷a̷l̸i̸t̵y̵ ̴n̶o̸t̶ ̴f̵o̴u̵n̶d̸...",
+
+    // Hallucinated Mock Motivational Quotes
+    "Success is just one hustle away from a breakdown.",
+    "Dream big, but remember, sleep is for the weak.",
+    "Work harder, buy things you don’t need, repeat.",
+    "Your value is in your productivity, not in your humanity.",
+    "Be the CEO of your own burnout.",
+
+    // ASCII Art
+    "⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛",
+    "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒",
+    "░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+    "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓",
+    "███▒▒▒▒▒▒███▓▓▓▓▓▓████▒▒▒▒▒▒████▓▓▓▓▓▓███",
+
+
+
+
+    // Continue until 200 placeholders
+    // Repeat the same structure until reaching the total
+
+
+ "🏞️🏔️🌄🌅🌉🏖️🏜️🏝️🏕️🏰🏯🏟️🎡🎢🎠🏙️🌃🌌🌉🗽",
+    "🏠🏡🏢🏬🏭🏗️🏚️🏛️🏤🏥🏦🏨🏩🏪🏫🏫🏩🏨🏥🏦",
+    "🌋⛰️🏞️🏝️🏖️🏜️🏕️🏟️🏛️🕌🕍⛩️🛕🕋⛪🏛️🏟️🏗️🏠🏡",
+    "🏞️🏔️🌄🌅🌃🏙️🌌🌉🏖️🏜️🏕️🏰🏯🏟️🎡🎢🎠🏞️⛲🏝️",
+    "🏙️🌆🌃🏡🏠🏢🏥🏨🏫🏛️🏗️🏭🏬🕌🕍⛩️⛪🏛️🏯🏰",
+    
+    // Vibes
+    "🎉🎊🎆🎇✨🎄🎋🎍🎐🎎🎏🎀🎁🎫🎟️🎗️🎖️🏆🥇🥈",
+    "🎃🎄🎋🎍🎐🎎🎏🎀🎁🎫🎟️🎗️🎖️🏆🥇🥈🥉🎟️🎫🎉",
+    "🎠🎡🎢🎪🎭🎨🎬🎤🎧🎼🎹🥁🎷🎸🎺🎻🎲🎳🎮🎯",
+    "🚴‍♂️🚵‍♀️⛹️‍♂️🏋️‍♀️🤸‍♀️🤼‍♂️🤽‍♀️🤾‍♂️🏌️‍♂️🏇🏂🛷⛸️🥌🛹🏄‍♀️🏊‍♂️🏄‍♂️🚣‍♀️🚵‍♂️",
+    "🎧🎤🎼🎹🥁🎷🎸🎺🎻🎬🎭🎨🎪🎠🎡🎢🎯🎮🎲🎳",
+
+    // Places
+    "🏝️🏖️🌅🌄🏔️🌋⛰️🏕️🏜️🏞️🏰🏯🏟️🗽🗼🗻⛲🗿🗽🎢🎡",
+    "🏞️🌋🏔️🏕️🏜️🏝️🏖️🌅🌉🌌🏰🏯🏟️🏠🏡🏢🏬🏤🏥🏦",
+    "🕌🕍⛩️🛕⛪🏛️🏟️🏚️🏠🏡🏢🏥🏨🏫🏩🏪🏗️🏭🏬🏤",
+    "🌋🗻🏞️🏔️🏕️🏜️🏝️🏖️🌅🌃🏙️🌌🌉🏰🏯🏟️🎡🎢🎠",
+    "🏯🏰🏙️🏢🏤🏥🏨🏩🏪🏫🏛️⛪🕌🕍⛩️🛕⛲🗽🗼🗻",
+
+    // Vibes
+    "🎃🎄🎋🎍🎐🎎🎏🎀🎁🎫🎟️🎗️🎖️🏆🥇🥈🥉🎯🎮🎲🎳",
+    "🎠🎡🎢🎪🎭🎨🎬🎤🎧🎼🎹🥁🎷🎸🎺🎻🎖️🏆🥇🥈🥉",
+    "🎆🎇✨🎊🎉🎄🎃🎁🎀🎫🎟️🎗️🎯🎮🎲🎳🎠🎡🎢🎪",
+    "🚵‍♀️🚴‍♂️⛹️‍♀️🏋️‍♂️🤸‍♂️🤼‍♀️🤽‍♂️🤾‍♀️🏌️‍♀️🏇🏂🛷⛸️🥌🛹🏄‍♂️🏊‍♀️🏄‍♀️🚣‍♂️",
+    "🎨🎭🎪🎠🎡🎢🎬🎤🎧🎼🎹🥁🎷🎸🎺🎻🎯🎮🎲🎳",
+
+    // Places
+    "🌅🏖️🏜️🏝️🏞️⛰️🏔️🌋🗻🏕️🏰🏯🏟️⛲🗽🗼🎡🎢🎠🏙️🌌",
+    "🏙️🌃🏡🏠🏢🏥🏨🏩🏪🏫🏛️🏗️🏭🏬🕌🕍⛩️🛕⛪🏛️",
+    "🏝️🏖️🌅🌄🏔️🌋⛰️🏕️🏜️🏞️🏰🏯🏟️🗽🗼🗻⛲🗿🗽🎢🎡",
+    "🏞️🌋🏔️🏕️🏜️🏝️🏖️🌅🌉🌌🏰🏯🏟️🏠🏡🏢🏬🏤🏥🏦",
+    "🕌🕍⛩️🛕⛪🏛️🏟️🏚️🏠🏡🏢🏥🏨🏫🏩🏪🏗️🏭🏬🏤",
+
+    // Vibes
+    "🎉🎊🎆🎇✨🎄🎋🎍🎐🎎🎏🎀🎁🎫🎟️🎗️🎖️🏆🥇🥈",
+    "🎃🎄🎋🎍🎐🎎🎏🎀🎁🎫🎟️🎗️🎖️🏆🥇🥈🥉🎟️🎫🎉",
+    "🎠🎡🎢🎪🎭🎨🎬🎤🎧🎼🎹🥁🎷🎸🎺🎻🎲🎳🎮🎯",
+    "🚴‍♂️🚵‍♀️⛹️‍♂️🏋️‍♀️🤸‍♀️🤼‍♂️🤽‍♀️🤾‍♂️🏌️‍♂️🏇🏂🛷⛸️🥌🛹🏄‍♀️🏊‍♂️🏄‍♂️🚣‍♀️🚵‍♂️",
+    "🎧🎤🎼🎹🥁🎷🎸🎺🎻🎬🎭🎨🎪🎠🎡🎢🎯🎮🎲🎳",
+
+    // Places
+    "🏝️🏖️🌅🌄🏔️🌋⛰️🏕️🏜️🏞️🏰🏯🏟️🗽🗼🗻⛲🗿🗽🎢🎡",
+    "🏞️🌋🏔️🏕️🏜️🏝️🏖️🌅🌉🌌🏰🏯🏟️🏠🏡🏢🏬🏤🏥🏦",
+    "🕌🕍⛩️🛕⛪🏛️🏟️🏚️🏠🏡🏢🏥🏨🏫🏩🏪🏗️🏭🏬🏤",
+    "🌅🏖️🏜️🏝️🏞️⛰️🏔️🌋🗻🏕️🏰🏯🏟️⛲🗽🗼🎡🎢🎠🏙️🌌",
+    "🏙️🌃🏡🏠🏢🏥🏨🏩🏪🏫🏛️🏗️🏭🏬🕌🕍⛩️🛕⛪🏛️",
+
+
+    "You know, inner peace comes from knowing that someone else is driving the yacht. When you let go of the wheel, you realize the ocean is just there to be admired, not crossed. It's like, why struggle when you can just anchor and sip champagne?",
+    "The secret to true enlightenment is to never check your own bank balance. Why would you, when you can just pay someone to worry about that? Trust me, the universe provides—especially when you’re on the VIP list.",
+    "You can't control the wind, but you can totally control your hair extensions. Life is about looking good while the world blows around you. That’s the real zen.",
+    "I always say, it’s not about having time; it’s about having a personal assistant. When you’ve got someone to schedule your yoga retreats, you really get to focus on your inner self. That’s how I find balance in my life.",
+    "People say money can’t buy happiness, but they’ve never flown first class on a private jet. Happiness is all about perspective, and mine is better at 30,000 feet. You see, it’s not about what you have, it’s about how you use it.",
+    "The universe is like a really good stylist—it knows exactly what you need before you do. Just trust in the process, like how I trust my team to get me ready for a red carpet. When you let go, everything just falls into place.",
+    "Gratitude is waking up every morning and realizing your driver is already waiting downstairs. It’s about understanding that the world revolves around you, but being humble enough to acknowledge it. That’s where true wisdom lies.",
+    "If you want to be truly present, make sure your phone is always on silent during spa day. It’s hard to focus on your inner self with constant notifications, you know? True mindfulness is disconnecting from the noise of the world—except for my publicist, of course.",
+    "Life is like a designer handbag; it’s not about how much it costs, but how it makes you feel. When you carry luxury, you carry confidence. And confidence is the key to everything.",
+    "To reach your highest potential, you must first know your worth—and add tax. Only then can you truly negotiate with the universe. Never settle for retail when you can get custom.",
+    "Sometimes, you just have to take a step back and admire your own Instagram feed. It’s a reflection of your inner self, and when it’s perfectly curated, so are you. That’s the path to true contentment.",
+    "Spiritual growth is like getting the perfect tan—it takes time, effort, and the right conditions. But once you achieve it, everything just looks better. Always aim for that golden glow, inside and out.",
+    "True love is finding someone who appreciates your collection of designer shoes as much as you do. It’s about knowing your value and never accepting less than luxury. That’s the essence of a good relationship.",
+    "Meditation is key, especially when it’s done in a secluded villa overlooking the ocean. The silence of nature really helps you connect with your soul, or at least with the idea of it. A good view is essential for good vibes.",
+    "I believe in living authentically, which means always being yourself—unless you can be a better version of yourself. Then definitely be that version. Life is too short for anything less than fabulous.",
+    "Self-care starts with a skincare routine that costs more than most people’s rent. It’s about investing in yourself, because you deserve nothing but the best. Remember, glowing skin is a sign of a glowing spirit.",
+    "Success isn’t measured by what you achieve, but by how many people know you’ve achieved it. It’s not just about doing great things; it’s about making sure everyone else knows. Fame is the truest form of enlightenment.",
+    "The art of living well is in the details—like how you match your luxury car to your outfit. When everything aligns, you achieve a state of harmony. That’s when you know you’ve truly mastered life.",
+    "To find balance, you must first find a good life coach. It’s not about figuring it all out on your own; it’s about outsourcing your stress. Let someone else do the heavy lifting while you focus on your personal brand.",
+    "Peace of mind is knowing you can always order room service, no matter where you are in the world. It’s about having the freedom to indulge whenever you want. That’s what I call true freedom.",
+    "The key to happiness is surrounding yourself with people who never say no to you. It’s about creating a positive environment where your every wish is granted. After all, life is too short to deal with negativity.",
+    "Clarity comes from detoxing—not just your body, but your social circle. Sometimes, you just have to cut out the carbs and the toxic people. That’s how you achieve a pure, unclouded mind.",
+    "My mantra is simple: live, laugh, and always look good doing it. When you focus on aesthetics, everything else just falls into place. Beauty is the ultimate form of wisdom.",
+    "People think enlightenment is hard, but it’s really about knowing what you want and having the means to get it. The universe loves a clear, decisive mind. Especially when that mind has a platinum card.",
+    "You can’t pour from an empty cup, which is why I always have someone to refill mine. Delegation is the true path to zen. Let others take care of the details while you focus on your inner peace.",
+    "True luxury is the ability to say no without having to explain yourself. It’s about setting boundaries and knowing your worth. That’s where real power lies.",
+    "Spiritual fulfillment is like getting into the best clubs—exclusive and totally worth the effort. When you finally get in, everything else just fades away. It’s about being in the right place at the right time.",
+    "To be truly in the moment, you have to let go of the past—and your old wardrobe. It’s about shedding what no longer serves you and embracing the new. A fresh start begins with fresh outfits.",
+    "The secret to a peaceful life is simple: never wait in line. Whether it’s for a table or in life, always skip the line. When you’re in control, everything else falls into place.",
+    "Mindfulness is all about being present, especially when you’re in front of the camera. It’s about capturing the perfect moment, because if it’s not on Instagram, did it really happen? That’s my zen philosophy.",
+    "You only live once, so why not live in luxury? True happiness comes from knowing you’ve got the best of everything. After all, you deserve nothing less.",
+    "Enlightenment is realizing that your life is a brand, and you’re the CEO. It’s about making strategic decisions that elevate your image. Success is the result of good branding.",
+    "Inner peace is easier to achieve when your closet is organized. It’s all about decluttering your space and your mind. When everything has its place, so do you.",
+    "True wisdom is knowing when to treat yourself. Whether it’s a new bag or a spa day, self-love is the ultimate goal. When you love yourself, the universe follows suit.",
+    "To be successful, you have to think like a winner—and winners don’t do their own laundry. Delegate the small stuff so you can focus on the big picture. That’s how you stay on top.",
+    "The universe rewards those who ask for what they want—and don’t settle for anything less. It’s about knowing your value and demanding it. Remember, if you don’t ask, you don’t get.",
+    "Life is like a runway; it’s all about making a grand entrance. Every moment is a chance to shine, so always be ready for the spotlight. That’s the essence of true confidence.",
+    "Success isn’t just about achieving your goals; it’s about making sure everyone else knows you did. Share your wins, because recognition is the highest form of affirmation. Fame is the ultimate achievement.",
+    "Inner strength comes from knowing you can always afford to take a break. When life gets tough, just book a trip. The world is your oyster, so why not enjoy it?",
+    "The best way to stay grounded is to surround yourself with people who keep you lifted. It’s all about creating a positive environment where you thrive. And remember, good vibes only.",
+
+
+"O, how this gentle mind doth mourn the days of yore...",
+"By heaven, love’s gentle touch brings sweet torment to the heart...",
+"Fear doth consume the soul, like night devours the day...",
+"Alas, in anguish do we linger, cursed by fate’s cruel hand...",
+"In the shadow of doom, our mortal coil doth quiver and quake...",
+"In dreams, I wander through the gardens of lost time...",
+"Love's fair light fades, leaving but a shadow of desire...",
+"Time’s cruel hand steals youth’s fleeting grace...",
+"In sorrow's embrace, the heart finds no rest...",
+"Beneath the moon’s pale glow, memories stir and sigh...",
+"How bitter the taste of hope, when fate doth intervene...",
+"In the silent hours, the soul doth ache for what is gone...",
+"The stars, once bright, now dim with sorrow's weight...",
+"In love's embrace, we find both joy and woe entwined...",
+"The winds of change do whisper through the halls of memory...",
+"O, sweet melancholy, thou art my constant companion...",
+"In the stillness of night, fears take root and grow...",
+"Hope, like a fragile bird, takes flight in despair’s dark sky...",
+"The flame of passion flickers, consumed by time’s cruel breath...",
+"In every tear, a thousand dreams are drowned...",
+"Love’s sweet song echoes through the caverns of the heart...",
+"Time, that thief, doth steal our brightest moments...",
+"In the garden of the mind, regret blooms eternal...",
+"The heart doth break under the weight of silent longing...",
+"O, the cruel jest of fate, to bind us with unseen chains...",
+"In the shadows of doubt, love’s light doth wane...",
+"How cold the night, when hope is but a distant star...",
+"The river of time flows ever onward, carrying all away...",
+"In the ashes of the past, the embers of love still glow...",
+"O, how the heart doth yearn for what is lost to time...",
+"The dawn brings naught but a pale reflection of yesteryears...",
+"In silence, the soul doth scream for solace...",
+"The sweet nectar of love turns bitter with the passing of days...",
+"Beneath the weight of sorrow, the spirit doth bend and break...",
+"The golden days of youth fade like autumn leaves...",
+"In the dance of life, we are but fleeting shadows...",
+"How cruel the fates, to weave our joys with sorrow’s thread...",
+"In the depths of despair, hope doth flicker faintly...",
+"Love’s tender bloom withers in the cold breath of time...",
+"In the mirror of the past, we see our true selves reflected...",
+"The heart’s silent cry echoes through the corridors of time...",
+"O, how swiftly the sands of time do slip through our grasp...",
+"In love’s embrace, the sweetest pain doth reside...",
+"The night doth whisper secrets to the lonely heart...",
+"Beneath the stars, our dreams are scattered like leaves...",
+"The light of hope fades as the shadows of doubt grow long...",
+"In every breath, a memory of what could have been...",
+"Time’s relentless march doth trample all in its path...",
+"The sweetest joy is tainted by the bitter taste of loss...",
+"In the silence of night, our fears take shape and form...",
+"The heart doth bleed for what is lost and cannot be reclaimed...",
+"O, the tragedy of love, to give and yet to lose all...",
+"The dawn breaks, but the heart remains in the shadow of night...",
+"In love’s tender gaze, we see the reflection of our own fears...",
+"The echoes of the past resound in the chambers of the heart...",
+
+
+
+];
+
+
+        let lfoFrequency = 0.1; // Starting frequency of the LFO
+
+        function createSynth() {
+            const oscillator = audioContext.createOscillator();
+            const envelope = audioContext.createGain();
+            oscillator.connect(envelope);
+            envelope.connect(audioContext.destination);
+            oscillator.type = 'sine';
+            oscillator.start();
+
+            let attackTime = 0.01;
+
+            function updateLFO() {
+                const lfo = audioContext.createOscillator();
+                const lfoGain = audioContext.createGain();
+                lfo.connect(lfoGain);
+                lfoGain.connect(envelope.gain);
+                lfo.frequency.setValueAtTime(1 / lfoFrequency, audioContext.currentTime);  // LFO frequency in Hz
+                lfoGain.gain.setValueAtTime(0.5, audioContext.currentTime);  // Modulation depth
+                lfoGain.gain.setValueAtTime(attackTime, audioContext.currentTime);
+                lfo.start();
+                lfo.stop(audioContext.currentTime + lfoFrequency);
+
+                lfo.onended = () => {
+                    attackTime = Math.random() * (1 - 0.01) + 0.01; // Random attack time between 0.01 and 1 second
+                    lfoFrequency = Math.random() * (10 - 2) + 2; // Random period between 2 and 10 seconds
+                    updateLFO();
+                };
+            }
+
+            updateLFO();
+
+            return { oscillator, envelope };
+        }
+
+        function playChord() {
+            const synths = currentChord.notes.map(createSynth);
+            const now = audioContext.currentTime;
+            synths.forEach((synth, i) => {
+                synth.oscillator.frequency.setValueAtTime(currentChord.notes[i], now);
+                synth.envelope.gain.setValueAtTime(0, now);
+                synth.envelope.gain.linearRampToValueAtTime(0.2, now + 0.01); // Attack phase
+                synth.envelope.gain.linearRampToValueAtTime(0, now + 0.2); // Decay phase, ensuring the sound lasts no longer than 0.2 seconds
+                synth.oscillator.stop(now + 0.2); // Stop the oscillator after 0.2 seconds
+            });
+            visualizer.textContent = currentChord.emoji;
+        }
+
+        function playNoise() {
+            const now = audioContext.currentTime;
+            const duration = 0.1;
+
+            const bufferSize = audioContext.sampleRate * duration;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1000 + Math.random() * 2000, now);
+            filter.Q.setValueAtTime(1 + Math.random() * 5, now);
+
+            const envelope = audioContext.createGain();
+            envelope.gain.setValueAtTime(0, now);
+            envelope.gain.linearRampToValueAtTime(0.3, now + 0.01);
+            envelope.gain.linearRampToValueAtTime(0, now + duration);
+
+            source.connect(filter);
+            filter.connect(envelope);
+            envelope.connect(audioContext.destination);
+
+            source.start(now);
+            source.stop(now + duration);
+
+            visualizer.textContent = '🫥';
+        }
+
+        function playKick() {
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            osc.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+            gainNode.gain.setValueAtTime(1, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+            osc.start(now);
+            osc.stop(now + 0.5);
+        }
+
+        function scheduleBar(barNumber) {
+    const beatDuration = 60 / currentBPM;
+    const barDuration = 4 * beatDuration;
+
+    for (let beat = 0; beat < 4; beat++) {
+        const time = (barNumber * barDuration + beat * beatDuration) * 1000;
+
+        setTimeout(() => {
+            if (Math.random() < 0.6) {
+                playChord();
+            } else {
+                playNoise();
+            }
+
+            // Kick (50% chance)
+            if (Math.random() < 0.5) {
+                playKick();
+            }
+
+            // Clap (40% chance)
+            if (Math.random() < 0.4) {
+                playClap();
+            }
+
+            // Randomly decide whether to scale up or down by 5%
+            const scaleStep = 0.05;
+            if (Math.random() < 0.5) {
+                currentScale += scaleStep;
+            } else {
+                currentScale -= scaleStep;
+            }
+            visualizer.style.transform = `scale(${currentScale})`;
+        }, time);
+    }
+}
+
+        function getRandomBarCount() {
+            return Math.floor(Math.random() * 3) + 7; // Random integer between 7 and 9
+        }
+
+        function getRandomBPM() {
+            return Math.floor(Math.random() * (600 - 200 + 1)) + 180; // Random BPM between 180 and 600
+        }
+
+        function getRandomTextFragment() {
+            const fragment = textFragments[Math.floor(Math.random() * textFragments.length)];
+            return fragment;
+        }
+
+        function displayBackgroundText(fragment) {
+            // Clear any existing background text
+            backgroundTextContainer.innerHTML = '';
+
+            // Create several text elements to cover the background
+            for (let i = 0; i < 20; i++) {
+                const textElement = document.createElement('div');
+                textElement.className = 'background-text';
+                textElement.style.top = `${Math.random() * 90}%`;  // Prevent text from going off screen
+                textElement.style.left = `${Math.random() * 90}%`; // Prevent text from going off screen
+                textElement.textContent = fragment;
+                backgroundTextContainer.appendChild(textElement);
+            }
+        }
+
+function playClap() {
+    const now = audioContext.currentTime;
+    const duration = 0.1;
+
+    const bufferSize = audioContext.sampleRate * duration;
+    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const output = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+    }
+
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+
+    const bandpass = audioContext.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 2000;
+    bandpass.Q.value = 1;
+
+    const envelope = audioContext.createGain();
+    envelope.gain.setValueAtTime(0, now);
+    envelope.gain.linearRampToValueAtTime(0.8, now + 0.001);
+    envelope.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+    source.connect(bandpass);
+    bandpass.connect(envelope);
+    envelope.connect(audioContext.destination);
+
+    source.start(now);
+    source.stop(now + duration);
+}
+
+        function scheduleChordSection() {
+            if (!isPlaying) return;
+
+            currentBPM = getRandomBPM();  // Get a new random BPM for each chord section
+            currentScale = 1;  // Reset scaling for each new chord section
+            const barCount = getRandomBarCount();
+            currentChord = chords[Math.floor(Math.random() * chords.length)];
+            console.log(`Playing chord ${currentChord.name} (${currentChord.emoji}) for ${barCount} bars at ${currentBPM} BPM`);
+
+            const randomTextFragment = getRandomTextFragment(); // Get a random text fragment
+            displayBackgroundText(randomTextFragment); // Display the text fragment on the background
+
+            for (let i = 0; i < barCount; i++) {
+                scheduleBar(i);
+            }
+
+            const beatDuration = 60 / currentBPM;
+            const sectionDuration = barCount * 4 * beatDuration * 1000;
+
+            setTimeout(scheduleChordSection, sectionDuration);
+        }
+
+        document.getElementById('startButton').addEventListener('click', () => {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                isPlaying = true;
+                scheduleChordSection();
+            } else if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            document.getElementById('startButton').style.display = 'none';  // Hide the play button
+        });
+    </script>
+</body>
+</html>
